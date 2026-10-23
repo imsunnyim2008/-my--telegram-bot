@@ -5,7 +5,7 @@ A beginner-friendly Telegram companion bot written in Python. Features include A
 ## Features
 
 - `/start`, `/help`, `/about`
-- AI conversation powered by the OpenAI API
+- AI conversation powered by Groq
 - Separate conversation history for each Telegram user
 - `/personality friendly|funny|thoughtful|coach`
 - `/memory` to inspect memory status
@@ -17,14 +17,15 @@ A beginner-friendly Telegram companion bot written in Python. Features include A
 
 - Python 3.10+
 - A Telegram bot token from Telegram's official `@BotFather`
-- An OpenAI API key for AI replies. API usage may cost money; ChatGPT subscriptions do not automatically include API credits.
+- A Groq API key. Groq offers a free tier with rate limits; usage beyond free-tier limits may require a paid plan. See Groq's current limits before relying on the bot for heavy use.
 
 ## Run locally
 
 1. Create a bot using `@BotFather` in Telegram and copy its token.
-2. Copy `.env.example` to `.env`.
-3. Put your Telegram token and OpenAI API key in `.env`.
-4. Install dependencies:
+2. Create a Groq account and generate an API key at https://console.groq.com/keys.
+3. Copy `.env.example` to `.env`.
+4. Put your Telegram token and Groq API key in `.env`.
+5. Install dependencies:
 
    ```bash
    python -m venv .venv
@@ -35,7 +36,7 @@ A beginner-friendly Telegram companion bot written in Python. Features include A
    pip install -r requirements.txt
    ```
 
-5. Start the bot:
+6. Start the bot:
 
    ```bash
    python main.py
@@ -50,8 +51,8 @@ Use a Python worker/background service on a host that supports long-running proc
 | Variable | Required | Description |
 |---|---|---|
 | `TELEGRAM_BOT_TOKEN` | Yes | Token from @BotFather |
-| `OPENAI_API_KEY` | For AI replies | API key; keep secret |
-| `AI_MODEL` | No | Defaults to `gpt-4o-mini` |
+| `GROQ_API_KEY` | For AI replies | Groq API key; keep secret |
+| `AI_MODEL` | No | Defaults to `openai/gpt-oss-20b` |
 | `BOT_NAME` | No | Defaults to `Nova` |
 | `BOT_PERSONALITY` | No | Base system instructions |
 | `MAX_HISTORY_MESSAGES` | No | Recent message context window |
@@ -73,6 +74,6 @@ Edit `BOT_NAME`, `BOT_PERSONALITY`, and `style_instruction()` in `main.py`. You 
 ## Troubleshooting
 
 - **Missing token:** set `TELEGRAM_BOT_TOKEN` in your environment.
-- **AI not configured:** set `OPENAI_API_KEY`.
+- **AI not configured:** set `GROQ_API_KEY`.
 - **Invalid token:** check the token with @BotFather and replace it in your host settings.
-- **AI errors:** check API billing/limits and the server logs.
+- **AI errors:** check your Groq model ID, account rate limits, and server logs.
