@@ -19,8 +19,8 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 log = logging.getLogger("companion")
 
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
-AI_MODEL = os.getenv("AI_MODEL", "gpt-4o-mini").strip()
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
+AI_MODEL = os.getenv("AI_MODEL", "openai/gpt-oss-20b").strip()
 DB_PATH = os.getenv("DATABASE_PATH", "companion.db")
 BOT_NAME = os.getenv("BOT_NAME", "Nova")
 DEFAULT_PERSONALITY = os.getenv(
@@ -126,7 +126,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def about(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        f"{BOT_NAME} is a configurable AI companion bot. It uses an AI API for replies "
+        f"{BOT_NAME} is a configurable AI companion bot. It uses Groq's AI API for replies "
         "and a local SQLite database for conversation history. The bot is not a human "
         "or a replacement for professional help."
     )
@@ -194,9 +194,9 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await message.reply_text(actions[text_in])
         return
-    if not OPENAI_API_KEY:
+    if not GROQ_API_KEY:
         await message.reply_text(
-            "The bot is running, but AI replies aren't configured yet. Add OPENAI_API_KEY "
+            "The bot is running, but AI replies aren't configured yet. Add GROQ_API_KEY "
             "to your environment variables, then restart the bot."
         )
         return
@@ -208,7 +208,10 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_message(user.id, "user", text_in)
     history = get_history(user.id)
     style = get_personality(user.id)
-    client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+    client = AsyncOpenAI(
+        api_key=GROQ_API_KEY,
+        base_url="https://api.groq.com/openai/v1",
+    )
     try:
         response = await client.chat.completions.create(
             model=AI_MODEL,
@@ -223,7 +226,6 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not reply:
             reply = "I didn't come up with a reply that time. Try sending that again?"
         save_message(user.id, "assistant", reply)
-        # Telegram message limit is 4096 characters; split conservatively.
         for i in range(0, len(reply), 4000):
             await message.reply_text(reply[i:i + 4000], reply_markup=keyboard)
     except Exception:
@@ -231,6 +233,8 @@ async def chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await message.reply_text(
             "Sorry, I couldn't get a reply from the AI service just now. Please try again shortly."
         )
+    finally:
+        await client.close()
 
 def main():
     if not BOT_TOKEN:
