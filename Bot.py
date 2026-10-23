@@ -5,15 +5,15 @@ from datetime import datetime, timezone
 
 import telebot
 from dotenv import load_dotenv
-from openai import OpenAI
+from google import genai
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("telegram_companion")
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
-GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
-AI_MODEL = os.getenv("AI_MODEL", "openai/gpt-oss-20b").strip()
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
+AI_MODEL = os.getenv("AI_MODEL", "gemini-2.5-flash").strip()
 BOT_NAME = os.getenv("BOT_NAME", "Nova")
 DATABASE_PATH = os.getenv("DATABASE_PATH", "companion.db")
 MAX_HISTORY_MESSAGES = int(os.getenv("MAX_HISTORY_MESSAGES", "16"))
@@ -23,7 +23,7 @@ if not TELEGRAM_BOT_TOKEN:
     raise RuntimeError("Missing TELEGRAM_BOT_TOKEN. Set it in your .env file or hosting environment.")
 
 bot = telebot.TeleBot(TELEGRAM_BOT_TOKEN)
-ai = OpenAI(api_key=GROQ_API_KEY, base_url="https://api.groq.com/openai/v1") if GROQ_API_KEY else None
+ai = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
 def connect_db():
     conn = sqlite3.connect(DATABASE_PATH)
@@ -76,7 +76,7 @@ def help_command(message):
         message,
         "/start — Start chatting\n"
         "/help — Show commands\n"
-        "/about — About this bot\n"
+        "/about — About the bot\n"
         "/memory — Check saved chat history\n"
         "/clear — Delete your saved chat history"
     )
@@ -85,7 +85,7 @@ def help_command(message):
 def about(message):
     bot.reply_to(
         message,
-        f"{BOT_NAME} is an AI companion powered by Groq when an API key is configured. "
+        f"{BOT_NAME} is an AI companion powered by Google's Gemini API when an API key is configured. "
         "It is software, not a human or a replacement for professional help."
     )
 
@@ -115,7 +115,7 @@ def chat(message):
     if ai is None:
         bot.reply_to(
             message,
-            "AI replies aren't configured yet. Add GROQ_API_KEY to your environment variables and restart the bot."
+            "AI replies aren't configured yet. Add GEMINI_API_KEY to your environment variables and restart the bot."
         )
         return
 
@@ -124,31 +124,31 @@ def chat(message):
     history = get_history(user_id)
     try:
         bot.send_chat_action(message.chat.id, "typing")
-        response = ai.chat.completions.create(
-            model=AI_MODEL,
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        f"You are {BOT_NAME}, a warm, thoughtful, friendly AI companion. "
-                        "Be natural, respectful, supportive, and concise. Never claim to be human. "
-                        "Do not encourage dependency or tell users to avoid trusted people. "
-                        "Match the user's language and tone."
-                    )
-                },
-                *history,
-            ],
-            temperature=0.8,
-            max_tokens=600,
+        conversation = []
+        for item in history:
+            speaker = "User" if item["role"] == "user" else BOT_NAME
+            conversation.append(f"{speaker}: {item['content']}")
+        prompt = (
+            f"You are {BOT_NAME}, a warm, thoughtful, friendly AI companion. "
+            "Be natural, respectful, supportive, and concise. Never claim to be human. "
+            "Do not encourage dependency or tell users to avoid trusted people. "
+            "Match the user's language and tone.\n\n"
+            "Continue this conversation using the recent history below. Respond only as the assistant.\n\n"
+            + "\n".join(conversation)
+            + f"\n{BOT_NAME}:"
         )
-        reply = (response.choices[0].message.content or "").strip()
+        response = ai.models.generate_content(
+            model=AI_MODEL,
+            contents=prompt,
+        )
+        reply = (response.text or "").strip()
         if not reply:
             reply = "I couldn't come up with a reply just then. Please try again."
         save_message(user_id, "assistant", reply)
         for start_at in range(0, len(reply), 4000):
             bot.reply_to(message, reply[start_at:start_at + 4000])
     except Exception:
-        log.exception("AI response failed")
+        log.exception("Gemini response failed")
         bot.reply_to(message, "Sorry, I couldn't get an AI reply right now. Please try again shortly.")
 
 if __name__ == "__main__":
